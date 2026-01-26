@@ -8,6 +8,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -31,7 +32,7 @@ class EditNoteActivity : AppCompatActivity() {
     private lateinit var contentEdit: EditText
     private lateinit var checklistRecycler: RecyclerView
     private lateinit var textNoteLayout: LinearLayout
-    private lateinit var checklistLayout: LinearLayout
+    private lateinit var checklistLayout: ConstraintLayout
     private lateinit var saveBtn: Button
     private lateinit var addItemBtn: FloatingActionButton
     private lateinit var progressBar: ProgressBar
