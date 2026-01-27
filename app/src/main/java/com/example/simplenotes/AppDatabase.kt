@@ -8,10 +8,11 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.simplenotes.model.ChecklistConverter
+import com.example.simplenotes.model.FileAttachmentConverter
 import com.example.simplenotes.model.NoteTypeConverter
 
-@Database(entities = [Note::class], version = 2, exportSchema = false)
-@TypeConverters(NoteTypeConverter::class, ChecklistConverter::class)
+@Database(entities = [Note::class], version = 3, exportSchema = false)
+@TypeConverters(NoteTypeConverter::class, ChecklistConverter::class, FileAttachmentConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun noteDao(): NoteDao
@@ -26,11 +27,18 @@ abstract class AppDatabase : RoomDatabase() {
          */
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // Добавляем поле type (по умолчанию TEXT)
                 database.execSQL("ALTER TABLE notes ADD COLUMN type TEXT NOT NULL DEFAULT 'TEXT'")
-                
-                // Добавляем поле checklistItems (по умолчанию пустой список)
                 database.execSQL("ALTER TABLE notes ADD COLUMN checklistItems TEXT NOT NULL DEFAULT '[]'")
+            }
+        }
+
+        /**
+         * Миграция с версии 2 на версию 3
+         * Добавляет поле attachedFiles
+         */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE notes ADD COLUMN attachedFiles TEXT NOT NULL DEFAULT '[]'")
             }
         }
 
@@ -41,8 +49,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "simplenotes.db"
                 )
-                    .addMigrations(MIGRATION_1_2) // Добавляем миграцию
-                    .fallbackToDestructiveMigration() // На случай других миграций
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3) // Добавляем обе миграции
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

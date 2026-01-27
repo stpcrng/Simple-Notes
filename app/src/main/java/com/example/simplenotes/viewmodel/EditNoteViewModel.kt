@@ -47,10 +47,16 @@ class EditNoteViewModel(private val repository: NoteRepository) : ViewModel() {
     /**
      * Сохранение заметки
      */
-    fun saveNote(note: Note, title: String, content: String, checklistItems: List<com.example.simplenotes.model.ChecklistItem>) {
+    fun saveNote(
+        note: Note,
+        title: String,
+        content: String,
+        checklistItems: List<com.example.simplenotes.model.ChecklistItem>,
+        attachedFiles: List<com.example.simplenotes.model.FileAttachment>
+    ) {
         viewModelScope.launch {
             // Валидация
-            if (title.isBlank() && content.isBlank() && checklistItems.all { it.text.isBlank() }) {
+            if (title.isBlank() && content.isBlank() && checklistItems.all { it.text.isBlank() } && attachedFiles.isEmpty()) {
                 _saveResult.value = SaveResult.Error("Заметка не может быть пустой")
                 return@launch
             }
@@ -59,6 +65,7 @@ class EditNoteViewModel(private val repository: NoteRepository) : ViewModel() {
                 title = title,
                 content = content,
                 checklistItems = checklistItems,
+                attachedFiles = attachedFiles,
                 updatedAt = System.currentTimeMillis()
             )
 

@@ -154,6 +154,41 @@
                 android:textSize="16sp"
                 app:cornerRadius="12dp"
                 app:backgroundTint="@color/primary" />
+
+            <!-- Прикрепленные файлы -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Прикрепленные файлы"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="16dp"
+                android:id="@+id/tvFilesLabel" />
+
+            <!-- RecyclerView для файлов -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerFiles"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:clipToPadding="false"
+                android:orientation="horizontal"
+                android:paddingBottom="8dp" />
+
+            <!-- Кнопка прикрепить файл -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAttachFile"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="📎 Прикрепить файл"
+                android:textSize="14sp"
+                app:cornerRadius="12dp"
+                app:strokeColor="@color/divider"
+                app:icon="@android:drawable/ic_menu_add"
+                app:iconTint="@color/primary" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
