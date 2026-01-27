@@ -1,17 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.SimpleNotes.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
     app:cardElevation="2dp"
-    app:cardCornerRadius="8dp"
-    android:foreground="?attr/selectableItemBackground">
+    app:cardCornerRadius="12dp"
+    app:cardBackgroundColor="@color/card_background"
+    app:rippleColor="@color/ripple"
+    android:clickable="true"
+    android:focusable="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:animateLayoutChanges="true">
 
         <!-- Индикатор типа заметки -->
         <View
@@ -24,7 +30,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="16dp"
+            android:paddingStart="20dp">
 
             <!-- Заголовок -->
             <TextView
@@ -36,7 +43,8 @@
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
                 android:maxLines="2"
-                android:ellipsize="end" />
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium" />
 
             <!-- Превью текста -->
             <TextView
@@ -48,8 +56,9 @@
                 android:textColor="@color/text_secondary"
                 android:layout_marginTop="8dp"
                 android:maxLines="4"
-                android:ellipsize="end" />
+                android:ellipsize="end"
+                android:lineSpacingExtra="2dp"
+                android:alpha="0.8" />
         </LinearLayout>
     </LinearLayout>
-
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>

@@ -8,7 +8,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -31,8 +30,8 @@ class EditNoteActivity : AppCompatActivity() {
     private lateinit var titleEdit: EditText
     private lateinit var contentEdit: EditText
     private lateinit var checklistRecycler: RecyclerView
-    private lateinit var textNoteLayout: LinearLayout
-    private lateinit var checklistLayout: ConstraintLayout
+    private lateinit var textNoteLayout: android.view.View
+    private lateinit var checklistLayout: android.view.View
     private lateinit var saveBtn: Button
     private lateinit var addItemBtn: FloatingActionButton
     private lateinit var progressBar: ProgressBar
@@ -146,13 +145,20 @@ class EditNoteActivity : AppCompatActivity() {
     private fun displayNote(note: Note) {
         titleEdit.setText(note.title)
 
-        // Показываем нужный layout в зависимости от типа
+        // Показываем нужный layout в зависимости от типа с анимацией
         when (note.type) {
             NoteType.TEXT -> {
                 textNoteLayout.visibility = View.VISIBLE
                 checklistLayout.visibility = View.GONE
                 contentEdit.setText(note.content)
-                
+
+                // Анимация появления
+                textNoteLayout.alpha = 0f
+                textNoteLayout.animate()
+                    .alpha(1f)
+                    .setDuration(200)
+                    .start()
+
                 if (note.title.isEmpty() && note.content.isEmpty()) {
                     titleEdit.requestFocus()
                 }
@@ -161,7 +167,14 @@ class EditNoteActivity : AppCompatActivity() {
                 textNoteLayout.visibility = View.GONE
                 checklistLayout.visibility = View.VISIBLE
                 checklistAdapter.updateItems(note.checklistItems)
-                
+
+                // Анимация появления
+                checklistLayout.alpha = 0f
+                checklistLayout.animate()
+                    .alpha(1f)
+                    .setDuration(200)
+                    .start()
+
                 if (note.title.isEmpty()) {
                     titleEdit.requestFocus()
                 }

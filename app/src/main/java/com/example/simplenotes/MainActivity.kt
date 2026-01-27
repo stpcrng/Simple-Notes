@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adapter: NoteAdapter
     private lateinit var recyclerView: RecyclerView
     private lateinit var progressBar: ProgressBar
+    private lateinit var emptyState: android.view.View
 
     private val editorLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -49,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupUI() {
         recyclerView = findViewById(R.id.recyclerView)
         progressBar = findViewById(R.id.progressBar)
+        emptyState = findViewById(R.id.emptyState)
         val addBtn = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.btnAdd)
 
         adapter = NoteAdapter(
@@ -90,8 +92,28 @@ class MainActivity : AppCompatActivity() {
                     }
                     is Result.Success -> {
                         progressBar.visibility = View.GONE
-                        recyclerView.visibility = View.VISIBLE
-                        adapter.update(result.data)
+
+                        if (result.data.isEmpty()) {
+                            recyclerView.visibility = View.GONE
+                            emptyState.visibility = View.VISIBLE
+                            // Анимация появления пустого состояния
+                            emptyState.alpha = 0f
+                            emptyState.animate()
+                                .alpha(1f)
+                                .setDuration(300)
+                                .start()
+                        } else {
+                            recyclerView.visibility = View.VISIBLE
+                            emptyState.visibility = View.GONE
+                            adapter.update(result.data)
+
+                            // Анимация появления списка
+                            recyclerView.alpha = 0f
+                            recyclerView.animate()
+                                .alpha(1f)
+                                .setDuration(300)
+                                .start()
+                        }
                     }
                     is Result.Error -> {
                         progressBar.visibility = View.GONE

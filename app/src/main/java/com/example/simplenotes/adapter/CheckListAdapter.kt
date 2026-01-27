@@ -22,9 +22,9 @@ class ChecklistAdapter(
 ) : RecyclerView.Adapter<ChecklistAdapter.ChecklistViewHolder>() {
 
     inner class ChecklistViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val checkbox: CheckBox = view.findViewById(R.id.checkboxItem)
-        val editText: EditText = view.findViewById(R.id.editTextItem)
-        val deleteButton: ImageButton = view.findViewById(R.id.btnDeleteItem)
+        val checkbox: android.widget.CheckBox = view.findViewById(R.id.checkboxItem)
+        val editText: android.widget.EditText = view.findViewById(R.id.editTextItem)
+        val deleteButton: com.google.android.material.button.MaterialButton = view.findViewById(R.id.btnDeleteItem)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChecklistViewHolder {

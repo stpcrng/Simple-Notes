@@ -1,42 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="8dp"
-    android:gravity="center_vertical">
+    android:layout_marginVertical="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="1dp"
+    app:cardBackgroundColor="@color/card_background"
+    app:strokeWidth="0dp">
 
-    <!-- Checkbox -->
-    <CheckBox
-        android:id="@+id/checkboxItem"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:buttonTint="@color/primary" />
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical"
+        android:animateLayoutChanges="true">
 
-    <!-- EditText для текста задачи -->
-    <EditText
-        android:id="@+id/editTextItem"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:hint="Элемент списка"
-        android:textSize="16sp"
-        android:textColor="@color/text_primary"
-        android:textColorHint="@color/text_hint"
-        android:background="@null"
-        android:inputType="textCapSentences"
-        android:maxLines="3"
-        android:layout_marginStart="8dp" />
+        <!-- Checkbox -->
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/checkboxItem"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:buttonTint="@color/primary" />
 
-    <!-- Кнопка удаления -->
-    <ImageButton
-        android:id="@+id/btnDeleteItem"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:src="@android:drawable/ic_menu_delete"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Удалить"
-        android:tint="@color/text_secondary"
-        android:layout_marginStart="8dp" />
+        <!-- EditText для текста задачи -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            style="@style/Widget.Material3.TextInputLayout.FilledBox"
+            app:boxBackgroundColor="@android:color/transparent"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="0dp"
+            app:hintEnabled="false">
 
-</LinearLayout>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editTextItem"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Элемент списка"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_hint"
+                android:background="@android:color/transparent"
+                android:inputType="textCapSentences"
+                android:maxLines="3"
+                android:padding="8dp" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Кнопка удаления -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDeleteItem"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:insetLeft="0dp"
+            android:insetTop="0dp"
+            android:insetRight="0dp"
+            android:insetBottom="0dp"
+            app:icon="@android:drawable/ic_menu_delete"
+            app:iconTint="@color/text_secondary"
+            app:iconSize="20dp"
+            android:contentDescription="Удалить"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

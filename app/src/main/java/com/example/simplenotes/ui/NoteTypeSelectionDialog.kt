@@ -28,8 +28,8 @@ class NoteTypeSelectionDialog(
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val textNoteOption = view.findViewById<LinearLayout>(R.id.optionTextNote)
-        val checklistOption = view.findViewById<LinearLayout>(R.id.optionChecklist)
+        val textNoteOption = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.optionTextNote)
+        val checklistOption = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.optionChecklist)
 
         textNoteOption.setOnClickListener {
             onTypeSelected(NoteType.TEXT)
