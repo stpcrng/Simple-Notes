@@ -13,7 +13,7 @@ import com.example.simplenotes.model.FileAttachment
 import com.example.simplenotes.model.FileType
 
 /**
- * Адаптер для отображения прикрепленных файлов
+ * Адаптер для отображения прикреплённых файлов
  */
 class FileAttachmentAdapter(
     val files: MutableList<FileAttachment>,
@@ -38,50 +38,55 @@ class FileAttachmentAdapter(
     override fun onBindViewHolder(holder: FileViewHolder, position: Int) {
         val file = files[position]
 
-        holder.name.text = file.name
-        holder.size.text = formatFileSize(file.size)
+        holder.name.text = file.fileName
+        holder.size.text = formatFileSize(file.fileSize)
 
-        // Устанавливаем иконку в зависимости от типа файла
-        when (file.type) {
+        val fileType = FileType.fromMimeType(file.mimeType)
+
+        when (fileType) {
             FileType.IMAGE -> {
                 holder.icon.visibility = View.GONE
                 holder.thumbnail.visibility = View.VISIBLE
-                holder.thumbnail.setImageURI(Uri.parse(file.uri))
+                holder.thumbnail.setImageURI(Uri.parse(file.filePath))
             }
+
             FileType.DOCUMENT -> {
-                holder.icon.visibility = View.VISIBLE
                 holder.thumbnail.visibility = View.GONE
+                holder.icon.visibility = View.VISIBLE
                 holder.icon.setImageResource(android.R.drawable.ic_menu_agenda)
             }
+
             FileType.AUDIO -> {
-                holder.icon.visibility = View.VISIBLE
                 holder.thumbnail.visibility = View.GONE
+                holder.icon.visibility = View.VISIBLE
                 holder.icon.setImageResource(android.R.drawable.ic_btn_speak_now)
             }
+
             FileType.VIDEO -> {
-                holder.icon.visibility = View.VISIBLE
                 holder.thumbnail.visibility = View.GONE
+                holder.icon.visibility = View.VISIBLE
                 holder.icon.setImageResource(android.R.drawable.ic_media_play)
             }
+
             FileType.OTHER -> {
-                holder.icon.visibility = View.VISIBLE
                 holder.thumbnail.visibility = View.GONE
+                holder.icon.visibility = View.VISIBLE
                 holder.icon.setImageResource(android.R.drawable.ic_menu_info_details)
             }
         }
 
-        // Клик на файл - открыть
+        // Открыть файл
         holder.itemView.setOnClickListener {
             onFileClick(file)
         }
 
-        // Кнопка удаления
+        // Удалить файл
         holder.deleteBtn.setOnClickListener {
             onFileDelete(file)
         }
     }
 
-    override fun getItemCount() = files.size
+    override fun getItemCount(): Int = files.size
 
     fun addFile(file: FileAttachment) {
         files.add(file)

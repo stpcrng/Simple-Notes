@@ -71,4 +71,18 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+
+
+    // Coil для загрузки изображений
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // Material Icons Extended
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
+    // WorkManager для фоновых задач
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // Hilt WorkManager integration
+    implementation("androidx.hilt:hilt-work:1.1.0")
+    kapt("androidx.hilt:hilt-compiler:1.1.0")
 }

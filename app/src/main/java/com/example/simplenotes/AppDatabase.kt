@@ -8,11 +8,10 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.simplenotes.model.ChecklistConverter
-import com.example.simplenotes.model.FileAttachmentConverter
 import com.example.simplenotes.model.NoteTypeConverter
 
 @Database(entities = [Note::class], version = 3, exportSchema = false)
-@TypeConverters(NoteTypeConverter::class, ChecklistConverter::class, FileAttachmentConverter::class)
+@TypeConverters(NoteTypeConverter::class, ChecklistConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun noteDao(): NoteDao

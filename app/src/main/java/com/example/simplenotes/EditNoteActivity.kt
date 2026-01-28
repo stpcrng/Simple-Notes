@@ -190,30 +190,34 @@ class EditNoteActivity : AppCompatActivity() {
 
     private fun handleSelectedFile(uri: Uri) {
         try {
+            val note = currentNote ?: return
+
             val fileName = getFileName(uri)
             val fileSize = getFileSize(uri)
-            val mimeType = contentResolver.getType(uri)
-            val fileType = FileType.fromMimeType(mimeType)
+            val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
 
-            // Сохраняем постоянное разрешение на URI
+            // сохраняем доступ
             contentResolver.takePersistableUriPermission(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
 
-            val fileAttachment = FileAttachment(
-                uri = uri.toString(),
-                name = fileName,
-                type = fileType,
-                size = fileSize
+            val attachment = FileAttachment(
+                noteId = note.id,
+                filePath = uri.toString(),
+                fileName = fileName,
+                mimeType = mimeType,
+                fileSize = fileSize
             )
 
-            fileAdapter.addFile(fileAttachment)
+            fileAdapter.addFile(attachment)
             Toast.makeText(this, "Файл добавлен: $fileName", Toast.LENGTH_SHORT).show()
+
         } catch (e: Exception) {
             showError("Ошибка добавления файла: ${e.message}")
         }
     }
+
 
     private fun getFileName(uri: Uri): String {
         var name = "unknown"
@@ -243,8 +247,9 @@ class EditNoteActivity : AppCompatActivity() {
 
     private fun openFile(file: FileAttachment) {
         try {
+            val uri = Uri.parse(file.filePath)
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(Uri.parse(file.uri), contentResolver.getType(Uri.parse(file.uri)))
+                setDataAndType(uri, file.mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             startActivity(Intent.createChooser(intent, "Открыть файл"))
@@ -252,6 +257,7 @@ class EditNoteActivity : AppCompatActivity() {
             showError("Не удалось открыть файл")
         }
     }
+
 
     private fun saveNote() {
         val note = currentNote ?: return

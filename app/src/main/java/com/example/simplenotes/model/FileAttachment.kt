@@ -1,65 +1,70 @@
 package com.example.simplenotes.model
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import com.example.simplenotes.Note
 
 /**
- * Прикрепленный файл к заметке
+ * Модель файлового вложения
+ * Хранит локальный путь вместо URI для надёжности
  */
-data class FileAttachment(
-    val id: String = java.util.UUID.randomUUID().toString(),
-    val uri: String, // URI файла
-    val name: String, // Имя файла
-    val type: FileType, // Тип файла
-    val size: Long = 0L, // Размер в байтах
-    val timestamp: Long = System.currentTimeMillis()
+@Entity(
+    tableName = "file_attachments",
+    foreignKeys = [
+        ForeignKey(
+            entity = Note::class, // Используйте вашу существующую модель Note
+            parentColumns = ["id"],
+            childColumns = ["noteId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["noteId"])]
 )
+data class FileAttachment(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
 
-/**
- * Типы файлов
- */
-enum class FileType {
-    IMAGE,      // Изображения
-    DOCUMENT,   // Документы (PDF, DOC, TXT)
-    AUDIO,      // Аудио
-    VIDEO,      // Видео
-    OTHER;      // Другие файлы
+    val noteId: Long,
 
-    companion object {
-        fun fromMimeType(mimeType: String?): FileType {
-            return when {
-                mimeType == null -> OTHER
-                mimeType.startsWith("image/") -> IMAGE
-                mimeType.startsWith("audio/") -> AUDIO
-                mimeType.startsWith("video/") -> VIDEO
-                mimeType == "application/pdf" ||
-                        mimeType.startsWith("application/msword") ||
-                        mimeType.startsWith("application/vnd.openxmlformats") ||
-                        mimeType == "text/plain" -> DOCUMENT
-                else -> OTHER
-            }
-        }
+    /**
+     * Относительный путь к файлу в internal storage
+     * Например: "attachments/uuid.jpg"
+     */
+    val filePath: String,
+
+    /**
+     * Оригинальное имя файла (для отображения пользователю)
+     */
+    val fileName: String,
+
+    /**
+     * MIME тип файла
+     */
+    val mimeType: String,
+
+    /**
+     * Размер файла в байтах
+     */
+    val fileSize: Long,
+
+    /**
+     * Временная метка добавления
+     */
+    val timestamp: Long = System.currentTimeMillis()
+) {
+    /**
+     * Проверяет, является ли файл изображением
+     */
+    fun isImage(): Boolean {
+        return mimeType.startsWith("image/")
     }
-}
 
-/**
- * Конвертер для сериализации списка файлов в JSON
- */
-class FileAttachmentConverter {
-    private val gson = Gson()
-
-    @androidx.room.TypeConverter
-    fun fromFileAttachments(files: List<FileAttachment>?): String {
-        return gson.toJson(files ?: emptyList<FileAttachment>())
-    }
-
-    @androidx.room.TypeConverter
-    fun toFileAttachments(json: String): List<FileAttachment> {
-        val type = object : TypeToken<List<FileAttachment>>() {}.type
-        return try {
-            gson.fromJson(json, type) ?: emptyList()
-        } catch (e: Exception) {
-            emptyList()
-        }
+    /**
+     * Получает расширение файла
+     */
+    fun getExtension(): String {
+        return fileName.substringAfterLast('.', "").uppercase()
     }
 }
