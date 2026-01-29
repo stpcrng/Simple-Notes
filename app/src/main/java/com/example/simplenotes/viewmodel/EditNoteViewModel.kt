@@ -9,6 +9,7 @@ import com.example.simplenotes.model.FileAttachment
 import com.example.simplenotes.repository.FileAttachmentRepository
 import com.example.simplenotes.repository.NoteRepository
 import com.example.simplenotes.utils.Result
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +30,7 @@ class EditNoteViewModel(
     val attachments: StateFlow<List<FileAttachment>> = _attachments.asStateFlow()
 
     private var currentNoteId: Long = -1
+    private var attachmentsJob: Job? = null
 
     fun loadNote(noteId: Long) {
         currentNoteId = noteId
@@ -54,7 +56,10 @@ class EditNoteViewModel(
     }
 
     private fun loadAttachments(noteId: Long) {
-        viewModelScope.launch {
+        // Отменяем предыдущую подписку, если она есть
+        attachmentsJob?.cancel()
+        
+        attachmentsJob = viewModelScope.launch {
             attachmentRepository.getAttachmentsFlow(noteId).collect { files ->
                 _attachments.value = files
             }
@@ -68,33 +73,32 @@ class EditNoteViewModel(
         checklistItems: List<ChecklistItem>
     ) {
         viewModelScope.launch {
-            // Проверка на пустоту
-            val hasContent = title.isNotBlank() ||
-                    content.isNotBlank() ||
-                    checklistItems.any { it.text.isNotBlank() } ||
-                    _attachments.value.isNotEmpty()
+            try {
+                // Обновляем заметку
+                val updatedNote = note.copy(
+                    title = title.ifBlank { "Без названия" },
+                    content = content,
+                    checklistItems = checklistItems,
+                    updatedAt = System.currentTimeMillis()
+                )
 
-            if (!hasContent) {
-                _saveResult.value = SaveResult.Error("Заметка не может быть пустой")
-                return@launch
-            }
-
-            // Обновляем заметку
-            val updatedNote = note.copy(
-                title = title,
-                content = content,
-                checklistItems = checklistItems,
-                updatedAt = System.currentTimeMillis()
-            )
-
-            when (val result = noteRepository.updateNote(updatedNote)) {
-                is Result.Success -> {
-                    _saveResult.value = SaveResult.Success
+                when (val result = noteRepository.updateNote(updatedNote)) {
+                    is Result.Success -> {
+                        // Сохраняем временные файлы (с noteId = 0)
+                        saveTemporaryAttachments(updatedNote.id)
+                        
+                        // Обновляем текущий noteId
+                        currentNoteId = updatedNote.id
+                        
+                        _saveResult.value = SaveResult.Success
+                    }
+                    is Result.Error -> {
+                        _saveResult.value = SaveResult.Error("Ошибка сохранения: ${result.message}")
+                    }
+                    else -> {}
                 }
-                is Result.Error -> {
-                    _saveResult.value = SaveResult.Error("Ошибка сохранения: ${result.message}")
-                }
-                else -> {}
+            } catch (e: Exception) {
+                _saveResult.value = SaveResult.Error("Ошибка сохранения: ${e.message}")
             }
         }
     }
@@ -102,11 +106,39 @@ class EditNoteViewModel(
     fun addAttachment(attachment: FileAttachment) {
         viewModelScope.launch {
             try {
-                val id = attachmentRepository.insert(attachment)
-                // Обновляем список вложений
-                loadAttachments(currentNoteId)
+                // Убеждаемся, что noteId правильный
+                val noteId = if (attachment.noteId > 0) attachment.noteId else currentNoteId
+                if (noteId <= 0) {
+                    // Если заметка еще не сохранена, добавляем файл во временный список
+                    // Файл будет сохранен после сохранения заметки
+                    val tempAttachment = attachment.copy(noteId = 0)
+                    _attachments.value = _attachments.value + tempAttachment
+                    return@launch
+                }
+                
+                val attachmentWithCorrectNoteId = attachment.copy(noteId = noteId)
+                attachmentRepository.insert(attachmentWithCorrectNoteId)
+                // Список обновится автоматически через Flow
             } catch (e: Exception) {
+                e.printStackTrace()
                 _saveResult.value = SaveResult.Error("Ошибка сохранения файла: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Сохраняет временные файлы (с noteId = 0) после сохранения заметки
+     */
+    private suspend fun saveTemporaryAttachments(noteId: Long) {
+        val temporaryAttachments = _attachments.value.filter { it.noteId == 0L }
+        if (temporaryAttachments.isNotEmpty()) {
+            temporaryAttachments.forEach { tempAttachment ->
+                try {
+                    val attachmentWithNoteId = tempAttachment.copy(noteId = noteId)
+                    attachmentRepository.insert(attachmentWithNoteId)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }

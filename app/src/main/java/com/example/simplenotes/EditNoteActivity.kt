@@ -84,8 +84,27 @@ class EditNoteActivity : AppCompatActivity() {
         // Загрузка заметки
         viewModel.loadNote(noteId)
     }
+    
+    private fun setupToolbar() {
+        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        toolbar.setNavigationOnClickListener {
+            finish()
+        }
+        toolbar.inflateMenu(R.menu.edit_note_menu)
+        toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_save -> {
+                    saveNote()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
 
     private fun setupUI() {
+        setupToolbar()
+        
         edtTitle = findViewById(R.id.editTitle)
         edtContent = findViewById(R.id.editContent)
         checklistRecycler = findViewById(R.id.recyclerChecklist)
@@ -116,18 +135,20 @@ class EditNoteActivity : AppCompatActivity() {
             onFileDelete = { file ->
                 // Удаляем из адаптера сразу
                 fileAdapter.removeFile(file)
-                // Если файл уже был сохранён в БД (есть id), удаляем из БД
-                if (file.id > 0) {
+                // Если файл уже был сохранён в БД (есть id и noteId > 0), удаляем из БД
+                if (file.id > 0 && file.noteId > 0) {
                     viewModel.deleteAttachment(file)
-                }
-                // Удаляем физический файл
-                try {
-                    File(file.filePath).delete()
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                } else {
+                    // Если файл еще не сохранен в БД, просто удаляем физический файл
+                    try {
+                        File(file.filePath).delete()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
         )
+        fileAdapter.setPackageName(packageName)
 
         fileRecycler.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
@@ -186,6 +207,8 @@ class EditNoteActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             viewModel.attachments.collectLatest { files ->
+                // Всегда обновляем адаптер, так как Flow может отправлять одинаковые списки
+                // но с обновленными объектами (например, после сохранения в БД с новым id)
                 fileAdapter.updateFiles(files)
             }
         }
@@ -216,26 +239,26 @@ class EditNoteActivity : AppCompatActivity() {
                 // Копируем файл в internal storage
                 val localPath = copyToInternalStorage(uri)
 
-                // Создаём объект вложения (пока без id, он появится после сохранения в БД)
+                // Создаём объект вложения
                 val attachment = FileAttachment(
-                    id = 0, // Временный id
-                    noteId = note.id,
+                    id = 0, // Временный id, будет установлен после сохранения в БД
+                    noteId = note.id, // Используем текущий noteId
                     filePath = localPath,
                     fileName = fileName,
                     mimeType = mimeType,
                     fileSize = fileSize
                 )
 
-                // Добавляем в адаптер для отображения
-                fileAdapter.addFile(attachment)
-
-                // Сразу сохраняем в БД
+                // Сохраняем в БД (ViewModel обновит список автоматически через Flow)
                 viewModel.addAttachment(attachment)
 
                 Toast.makeText(this, "Файл добавлен", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
+                e.printStackTrace()
                 showError("Ошибка добавления файла: ${e.message}")
             }
+        } ?: run {
+            showError("Заметка не загружена")
         }
     }
 
@@ -306,8 +329,10 @@ class EditNoteActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Автосохранение при выходе
-        saveNote()
+        // Автосохранение при выходе (только если заметка была изменена)
+        if (currentNote != null) {
+            saveNote()
+        }
     }
 
     private fun saveNote() {
@@ -326,6 +351,8 @@ class EditNoteActivity : AppCompatActivity() {
                 content = content,
                 checklistItems = checklistItems
             )
+        } ?: run {
+            showError("Заметка не загружена")
         }
     }
 }

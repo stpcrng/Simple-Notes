@@ -7,10 +7,12 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.example.simplenotes.R
 import com.example.simplenotes.model.FileAttachment
 import com.example.simplenotes.model.FileType
+import java.io.File
 
 /**
  * Адаптер для отображения прикреплённых файлов
@@ -20,6 +22,12 @@ class FileAttachmentAdapter(
     private val onFileClick: (FileAttachment) -> Unit,
     private val onFileDelete: (FileAttachment) -> Unit
 ) : RecyclerView.Adapter<FileAttachmentAdapter.FileViewHolder>() {
+
+    private var packageName: String = ""
+
+    fun setPackageName(packageName: String) {
+        this.packageName = packageName
+    }
 
     inner class FileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val icon: ImageView = view.findViewById(R.id.fileIcon)
@@ -47,7 +55,22 @@ class FileAttachmentAdapter(
             FileType.IMAGE -> {
                 holder.icon.visibility = View.GONE
                 holder.thumbnail.visibility = View.VISIBLE
-                holder.thumbnail.setImageURI(Uri.parse(file.filePath))
+                try {
+                    val imageFile = File(file.filePath)
+                    if (imageFile.exists() && packageName.isNotEmpty()) {
+                        val uri = FileProvider.getUriForFile(
+                            holder.itemView.context,
+                            "$packageName.fileprovider",
+                            imageFile
+                        )
+                        holder.thumbnail.setImageURI(uri)
+                    } else {
+                        holder.thumbnail.setImageResource(android.R.drawable.ic_menu_gallery)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    holder.thumbnail.setImageResource(android.R.drawable.ic_menu_gallery)
+                }
             }
 
             FileType.DOCUMENT -> {
@@ -102,9 +125,26 @@ class FileAttachmentAdapter(
     }
 
     fun updateFiles(newFiles: List<FileAttachment>) {
-        files.clear()
-        files.addAll(newFiles)
-        notifyDataSetChanged()
+        // Проверяем, действительно ли список изменился по содержимому
+        val filesChanged = files.size != newFiles.size || 
+                files.zip(newFiles).any { (old, new) -> 
+                    old.id != new.id || old.noteId != new.noteId || old.filePath != new.filePath 
+                }
+        
+        if (filesChanged) {
+            val oldSize = files.size
+            files.clear()
+            files.addAll(newFiles)
+            
+            // Используем более эффективное обновление
+            if (oldSize == 0 && newFiles.isNotEmpty()) {
+                notifyItemRangeInserted(0, newFiles.size)
+            } else if (oldSize > 0 && newFiles.isEmpty()) {
+                notifyItemRangeRemoved(0, oldSize)
+            } else {
+                notifyDataSetChanged()
+            }
+        }
     }
 
     private fun formatFileSize(bytes: Long): String {
