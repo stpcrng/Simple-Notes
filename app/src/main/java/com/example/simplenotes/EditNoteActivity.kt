@@ -127,7 +127,7 @@ class EditNoteActivity : AppCompatActivity() {
         tvFileCount = findViewById(R.id.tvFileCount)
         
         // Настройка обработки клавиатуры для кнопки прикрепления файла
-        setupKeyboardListener()
+        //setupKeyboardListener()
 
         // ИСПРАВЛЕНО: используем View вместо LinearLayout
         layoutTextNote = findViewById(R.id.layoutTextNote)
