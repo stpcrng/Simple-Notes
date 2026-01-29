@@ -4,14 +4,17 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@color/background"
+    android:fitsSystemWindows="true">
 
     <!-- App Bar -->
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/background"
-        app:elevation="0dp">
+        app:elevation="0dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
@@ -19,20 +22,25 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@color/background"
             app:navigationIcon="?attr/homeAsUpIndicator"
-            app:title="Редактирование" />
+            app:title="Редактирование"
+            app:titleTextColor="@color/text_primary"
+            app:menu="@menu/edit_note_menu" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Контент -->
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:fillViewport="true"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="20dp"
+            android:paddingBottom="100dp">
 
             <!-- ProgressBar -->
             <ProgressBar
@@ -45,51 +53,15 @@
                 android:visibility="gone" />
 
             <!-- Заголовок заметки -->
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/titleInputLayout"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                style="@style/Widget.Material3.TextInputLayout.FilledBox"
-                app:boxBackgroundColor="@android:color/transparent"
-                app:boxStrokeWidth="0dp"
-                app:boxStrokeWidthFocused="0dp"
-                app:hintEnabled="false">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Тема заметки"
-                    android:textSize="24sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_hint"
-                    android:background="@android:color/transparent"
-                    android:inputType="textCapSentences"
-                    android:maxLines="2"
-                    android:padding="8dp" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <!-- Разделитель -->
-            <View
-                android:id="@+id/divider"
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="16dp"
-                android:background="@color/divider"
-                android:alpha="0.3" />
-
-            <!-- Layout для текстовой заметки -->
-            <LinearLayout
-                android:id="@+id/layoutTextNote"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:minHeight="300dp"
-                android:visibility="visible">
+                android:background="@drawable/bg_note_content"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
 
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/titleInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     style="@style/Widget.Material3.TextInputLayout.FilledBox"
@@ -99,27 +71,65 @@
                     app:hintEnabled="false">
 
                     <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/editContent"
+                        android:id="@+id/editTitle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Начните вводить текст..."
-                        android:textSize="16sp"
-                        android:textColor="@color/text_primary"
-                        android:textColorHint="@color/text_hint"
+                        android:hint="Тема заметки"
+                        android:textSize="26sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:textColorHint="#B0B0B0"
                         android:background="@android:color/transparent"
-                        android:gravity="top"
-                        android:inputType="textMultiLine|textCapSentences"
-                        android:minLines="10"
+                        android:inputType="textCapSentences"
+                        android:maxLines="2"
                         android:padding="8dp" />
                 </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
+            </FrameLayout>
+
+            <!-- Layout для текстовой заметки -->
+            <FrameLayout
+                android:id="@+id/layoutTextNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="400dp"
+                android:background="@drawable/bg_note_content"
+                android:padding="16dp"
+                android:visibility="visible">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    style="@style/Widget.Material3.TextInputLayout.FilledBox"
+                    app:boxBackgroundColor="@android:color/transparent"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="0dp"
+                    app:hintEnabled="false">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/editContent"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:hint="Начните вводить текст..."
+                        android:textSize="17sp"
+                        android:textColor="@color/white"
+                        android:textColorHint="#B0B0B0"
+                        android:background="@android:color/transparent"
+                        android:gravity="top|start"
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:minLines="15"
+                        android:padding="8dp"
+                        android:lineSpacingExtra="4dp" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </FrameLayout>
 
             <!-- Layout для чеклиста -->
             <FrameLayout
                 android:id="@+id/layoutChecklist"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="300dp"
+                android:minHeight="400dp"
+                android:background="@drawable/bg_note_content"
+                android:padding="16dp"
                 android:visibility="gone">
 
                 <!-- RecyclerView для элементов чеклиста -->
@@ -133,7 +143,6 @@
                 <!-- FAB для добавления нового элемента -->
                 <com.google.android.material.floatingactionbutton.FloatingActionButton
                     android:id="@+id/fabAddItem"
-                    style="@style/Widget.SimpleNotes.FAB"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|end"
@@ -146,39 +155,61 @@
             </FrameLayout>
 
             <!-- Прикреплённые файлы -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Прикреплённые файлы"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginTop="16dp"
-                android:id="@+id/tvFilesLabel" />
-
-            <!-- RecyclerView для файлов -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerFiles"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:clipToPadding="false"
-                android:orientation="horizontal"
-                android:paddingBottom="8dp" />
+                android:orientation="vertical"
+                android:layout_marginTop="24dp">
 
-            <!-- Кнопка прикрепить файл -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAttachFile"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="📎 Прикрепить файл"
-                android:textSize="14sp"
-                app:cornerRadius="12dp"
-                app:strokeColor="@color/divider"
-                app:icon="@android:drawable/ic_menu_add"
-                app:iconTint="@color/primary" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Прикреплённые файлы"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:id="@+id/tvFilesLabel" />
+
+                <!-- RecyclerView для файлов -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerFiles"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:clipToPadding="false"
+                    android:paddingBottom="8dp" />
+
+                <!-- Счетчик файлов -->
+                <TextView
+                    android:id="@+id/tvFileCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_hint"
+                    android:visibility="gone" />
+            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- Кнопка прикрепления файла внизу справа (рядом с клавиатурой) -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/btnAttachFile"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:text="Прикрепить файл"
+        android:textSize="14sp"
+        android:textColor="@color/primary"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        app:icon="@drawable/ic_attach_file_circle"
+        app:iconPadding="8dp"
+        app:iconSize="20dp"
+        app:iconTint="@color/primary"
+        app:backgroundTint="@color/white"
+        app:elevation="8dp"
+        app:cornerRadius="28dp" />
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

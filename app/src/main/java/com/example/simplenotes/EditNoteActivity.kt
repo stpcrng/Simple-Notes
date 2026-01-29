@@ -6,8 +6,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.View
-import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -25,6 +25,7 @@ import com.example.simplenotes.repository.NoteRepository
 import com.example.simplenotes.utils.Result
 import com.example.simplenotes.viewmodel.EditNoteViewModel
 import com.example.simplenotes.viewmodel.SaveResult
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.collectLatest
@@ -40,8 +41,9 @@ class EditNoteActivity : AppCompatActivity() {
     private lateinit var edtContent: EditText
     private lateinit var checklistRecycler: RecyclerView
     private lateinit var fileRecycler: RecyclerView
-    private lateinit var addFileBtn: Button
+    private lateinit var addFileBtn: ExtendedFloatingActionButton
     private lateinit var fabAddItem: FloatingActionButton
+    private lateinit var tvFileCount: TextView
 
     // ИСПРАВЛЕНО: layoutTextNote и layoutChecklist это View, не LinearLayout!
     private lateinit var layoutTextNote: View
@@ -64,10 +66,7 @@ class EditNoteActivity : AppCompatActivity() {
         setContentView(R.layout.activity_edit_note)
 
         val noteId = intent.getLongExtra("note_id", -1)
-        if (noteId == -1L) {
-            finish()
-            return
-        }
+        val noteTypeName = intent.getStringExtra("note_type")
 
         val db = AppDatabase.get(this)
         val noteRepo = NoteRepository(db.noteDao())
@@ -81,8 +80,22 @@ class EditNoteActivity : AppCompatActivity() {
         setupUI()
         observeViewModel()
 
-        // Загрузка заметки
-        viewModel.loadNote(noteId)
+        // Загрузка заметки или создание новой
+        if (noteId == -1L && noteTypeName != null) {
+            // Создаем новую заметку (без сохранения в БД)
+            val noteType = try {
+                NoteType.valueOf(noteTypeName)
+            } catch (e: Exception) {
+                NoteType.TEXT
+            }
+            viewModel.createNewNote(noteType)
+        } else if (noteId > 0) {
+            // Загружаем существующую заметку
+            viewModel.loadNote(noteId)
+        } else {
+            finish()
+            return
+        }
     }
     
     private fun setupToolbar() {
@@ -90,7 +103,7 @@ class EditNoteActivity : AppCompatActivity() {
         toolbar.setNavigationOnClickListener {
             finish()
         }
-        toolbar.inflateMenu(R.menu.edit_note_menu)
+        // Меню уже загружено через app:menu в XML
         toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_save -> {
@@ -111,6 +124,10 @@ class EditNoteActivity : AppCompatActivity() {
         fileRecycler = findViewById(R.id.recyclerFiles)
         addFileBtn = findViewById(R.id.btnAttachFile)
         fabAddItem = findViewById(R.id.fabAddItem)
+        tvFileCount = findViewById(R.id.tvFileCount)
+        
+        // Настройка обработки клавиатуры для кнопки прикрепления файла
+        setupKeyboardListener()
 
         // ИСПРАВЛЕНО: используем View вместо LinearLayout
         layoutTextNote = findViewById(R.id.layoutTextNote)
@@ -135,6 +152,9 @@ class EditNoteActivity : AppCompatActivity() {
             onFileDelete = { file ->
                 // Удаляем из адаптера сразу
                 fileAdapter.removeFile(file)
+                // Обновляем счетчик
+                updateFileCount(fileAdapter.files.size)
+                
                 // Если файл уже был сохранён в БД (есть id и noteId > 0), удаляем из БД
                 if (file.id > 0 && file.noteId > 0) {
                     viewModel.deleteAttachment(file)
@@ -210,6 +230,7 @@ class EditNoteActivity : AppCompatActivity() {
                 // Всегда обновляем адаптер, так как Flow может отправлять одинаковые списки
                 // но с обновленными объектами (например, после сохранения в БД с новым id)
                 fileAdapter.updateFiles(files)
+                updateFileCount(files.size)
             }
         }
 
@@ -219,7 +240,7 @@ class EditNoteActivity : AppCompatActivity() {
                     when (it) {
                         is SaveResult.Success -> {
                             Toast.makeText(this@EditNoteActivity, "Заметка сохранена", Toast.LENGTH_SHORT).show()
-                            finish()
+                            // НЕ закрываем экран - остаемся на экране редактирования
                         }
                         is SaveResult.Error -> showError(it.message)
                     }
@@ -232,6 +253,13 @@ class EditNoteActivity : AppCompatActivity() {
     private fun handleSelectedFile(uri: Uri) {
         currentNote?.let { note ->
             try {
+                // Проверяем ограничение на количество файлов
+                val currentFilesCount = fileAdapter.files.size
+                if (currentFilesCount >= 10) {
+                    showError("Можно прикрепить максимум 10 файлов")
+                    return
+                }
+                
                 val fileName = queryName(uri)
                 val fileSize = querySize(uri)
                 val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
@@ -242,17 +270,20 @@ class EditNoteActivity : AppCompatActivity() {
                 // Создаём объект вложения
                 val attachment = FileAttachment(
                     id = 0, // Временный id, будет установлен после сохранения в БД
-                    noteId = note.id, // Используем текущий noteId
+                    noteId = note.id, // Используем текущий noteId (может быть 0 для новой заметки)
                     filePath = localPath,
                     fileName = fileName,
                     mimeType = mimeType,
                     fileSize = fileSize
                 )
 
-                // Сохраняем в БД (ViewModel обновит список автоматически через Flow)
+                // Добавляем файл (ViewModel обработает сохранение)
                 viewModel.addAttachment(attachment)
+                
+                // Обновляем счетчик файлов
+                updateFileCount(currentFilesCount + 1)
 
-                Toast.makeText(this, "Файл добавлен", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Файл добавлен (${currentFilesCount + 1}/10)", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 e.printStackTrace()
                 showError("Ошибка добавления файла: ${e.message}")
@@ -327,12 +358,9 @@ class EditNoteActivity : AppCompatActivity() {
         Snackbar.make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG).show()
     }
 
-    override fun onPause() {
-        super.onPause()
-        // Автосохранение при выходе (только если заметка была изменена)
-        if (currentNote != null) {
-            saveNote()
-        }
+    override fun onBackPressed() {
+        // При нажатии назад просто закрываем экран без сохранения
+        super.onBackPressed()
     }
 
     private fun saveNote() {
@@ -353,6 +381,48 @@ class EditNoteActivity : AppCompatActivity() {
             )
         } ?: run {
             showError("Заметка не загружена")
+        }
+    }
+    
+    private fun setupKeyboardListener() {
+        // Используем WindowInsets для правильной обработки клавиатуры
+        val rootView = findViewById<View>(android.R.id.content)
+        rootView.viewTreeObserver.addOnGlobalLayoutListener {
+            val rect = android.graphics.Rect()
+            rootView.getWindowVisibleDisplayFrame(rect)
+            val screenHeight = rootView.height
+            val keypadHeight = screenHeight - rect.bottom
+            
+            // Если клавиатура открыта (keypadHeight > 200dp), обновляем отступ кнопки
+            val layoutParams = addFileBtn.layoutParams as? androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+            if (layoutParams != null) {
+                layoutParams.bottomMargin = if (keypadHeight > 200) {
+                    keypadHeight + 16 // отступ от клавиатуры
+                } else {
+                    16 // обычный отступ
+                }
+                addFileBtn.layoutParams = layoutParams
+            }
+        }
+    }
+    
+    private fun updateFileCount(count: Int) {
+        if (count > 0) {
+            tvFileCount.text = "Файлов: $count/10"
+            tvFileCount.visibility = View.VISIBLE
+        } else {
+            tvFileCount.visibility = View.GONE
+        }
+        
+        // Обновляем текст кнопки
+        if (count >= 10) {
+            addFileBtn.text = "Максимум файлов достигнут"
+            addFileBtn.isEnabled = false
+            addFileBtn.alpha = 0.6f
+        } else {
+            addFileBtn.text = "Прикрепить файл"
+            addFileBtn.isEnabled = true
+            addFileBtn.alpha = 1.0f
         }
     }
 }

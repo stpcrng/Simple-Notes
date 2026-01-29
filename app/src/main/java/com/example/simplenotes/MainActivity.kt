@@ -123,14 +123,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createNote(noteType: NoteType) {
-        viewModel.createNote(noteType) { noteId ->
-            openEditActivity(noteId)
-        }
+        // Открываем экран редактирования без создания заметки в БД
+        // Заметка будет создана только при нажатии кнопки сохранения
+        openEditActivity(-1, noteType)
     }
 
-    private fun openEditActivity(noteId: Long) {
+    private fun openEditActivity(noteId: Long, noteType: NoteType? = null) {
         val intent = Intent(this, EditNoteActivity::class.java)
         intent.putExtra("note_id", noteId)
+        if (noteType != null) {
+            intent.putExtra("note_type", noteType.name)
+        }
         startActivity(intent)
     }
 

@@ -32,6 +32,25 @@ class EditNoteViewModel(
     private var currentNoteId: Long = -1
     private var attachmentsJob: Job? = null
 
+    /**
+     * Создает новую временную заметку (без сохранения в БД)
+     */
+    fun createNewNote(noteType: com.example.simplenotes.model.NoteType) {
+        currentNoteId = -1 // Временная заметка
+        val newNote = Note(
+            id = 0,
+            title = "",
+            content = "",
+            type = noteType,
+            checklistItems = if (noteType == com.example.simplenotes.model.NoteType.CHECKLIST) 
+                listOf(ChecklistItem(text = "")) 
+            else emptyList(),
+            updatedAt = System.currentTimeMillis()
+        )
+        _note.value = Result.Success(newNote)
+        _attachments.value = emptyList()
+    }
+
     fun loadNote(noteId: Long) {
         currentNoteId = noteId
         viewModelScope.launch {
@@ -74,7 +93,6 @@ class EditNoteViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // Обновляем заметку
                 val updatedNote = note.copy(
                     title = title.ifBlank { "Без названия" },
                     content = content,
@@ -82,20 +100,52 @@ class EditNoteViewModel(
                     updatedAt = System.currentTimeMillis()
                 )
 
-                when (val result = noteRepository.updateNote(updatedNote)) {
-                    is Result.Success -> {
-                        // Сохраняем временные файлы (с noteId = 0)
-                        saveTemporaryAttachments(updatedNote.id)
-                        
-                        // Обновляем текущий noteId
-                        currentNoteId = updatedNote.id
-                        
-                        _saveResult.value = SaveResult.Success
+                if (currentNoteId <= 0) {
+                    // Создаем новую заметку
+                    when (val insertResult = noteRepository.insertNote(updatedNote)) {
+                        is Result.Success -> {
+                            val savedNoteId = insertResult.data
+                            
+                            // Сохраняем временные файлы (с noteId = 0)
+                            if (savedNoteId > 0) {
+                                saveTemporaryAttachments(savedNoteId)
+                                currentNoteId = savedNoteId
+                                
+                                // Обновляем заметку с правильным ID
+                                val finalNote = updatedNote.copy(id = savedNoteId)
+                                _note.value = Result.Success(finalNote)
+                                
+                                // Перезагружаем вложения из БД
+                                loadAttachments(savedNoteId)
+                            }
+                            
+                            _saveResult.value = SaveResult.Success
+                        }
+                        is Result.Error -> {
+                            _saveResult.value = SaveResult.Error("Ошибка сохранения: ${insertResult.message}")
+                        }
+                        else -> {}
                     }
-                    is Result.Error -> {
-                        _saveResult.value = SaveResult.Error("Ошибка сохранения: ${result.message}")
+                } else {
+                    // Обновляем существующую заметку
+                    when (val updateResult = noteRepository.updateNote(updatedNote)) {
+                        is Result.Success -> {
+                            // Сохраняем временные файлы (с noteId = 0)
+                            saveTemporaryAttachments(currentNoteId)
+                            
+                            // Обновляем заметку
+                            _note.value = Result.Success(updatedNote)
+                            
+                            // Перезагружаем вложения из БД
+                            loadAttachments(currentNoteId)
+                            
+                            _saveResult.value = SaveResult.Success
+                        }
+                        is Result.Error -> {
+                            _saveResult.value = SaveResult.Error("Ошибка сохранения: ${updateResult.message}")
+                        }
+                        else -> {}
                     }
-                    else -> {}
                 }
             } catch (e: Exception) {
                 _saveResult.value = SaveResult.Error("Ошибка сохранения: ${e.message}")
@@ -106,6 +156,13 @@ class EditNoteViewModel(
     fun addAttachment(attachment: FileAttachment) {
         viewModelScope.launch {
             try {
+                // Проверяем ограничение на количество файлов (максимум 10)
+                val currentFilesCount = _attachments.value.size
+                if (currentFilesCount >= 10) {
+                    _saveResult.value = SaveResult.Error("Можно прикрепить максимум 10 файлов")
+                    return@launch
+                }
+                
                 // Убеждаемся, что noteId правильный
                 val noteId = if (attachment.noteId > 0) attachment.noteId else currentNoteId
                 if (noteId <= 0) {
