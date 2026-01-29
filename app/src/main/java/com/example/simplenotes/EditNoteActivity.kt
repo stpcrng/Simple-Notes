@@ -19,137 +19,183 @@ import com.example.simplenotes.adapter.ChecklistAdapter
 import com.example.simplenotes.adapter.FileAttachmentAdapter
 import com.example.simplenotes.model.ChecklistItem
 import com.example.simplenotes.model.FileAttachment
-import com.example.simplenotes.model.FileType
 import com.example.simplenotes.model.NoteType
+import com.example.simplenotes.repository.FileAttachmentRepository
 import com.example.simplenotes.repository.NoteRepository
 import com.example.simplenotes.utils.Result
 import com.example.simplenotes.viewmodel.EditNoteViewModel
 import com.example.simplenotes.viewmodel.SaveResult
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.io.File
+import java.util.*
 
 class EditNoteActivity : AppCompatActivity() {
 
     private lateinit var viewModel: EditNoteViewModel
-    private lateinit var titleEdit: EditText
-    private lateinit var contentEdit: EditText
+
+    private lateinit var edtTitle: EditText
+    private lateinit var edtContent: EditText
     private lateinit var checklistRecycler: RecyclerView
-    private lateinit var filesRecycler: RecyclerView
-    private lateinit var textNoteLayout: android.view.View
-    private lateinit var checklistLayout: android.view.View
-    private lateinit var saveBtn: Button
-    private lateinit var addItemBtn: FloatingActionButton
-    private lateinit var attachFileBtn: Button
-    private lateinit var progressBar: android.widget.ProgressBar
-    private var currentNote: Note? = null
+    private lateinit var fileRecycler: RecyclerView
+    private lateinit var addFileBtn: Button
+    private lateinit var fabAddItem: FloatingActionButton
+
+    // ИСПРАВЛЕНО: layoutTextNote и layoutChecklist это View, не LinearLayout!
+    private lateinit var layoutTextNote: View
+    private lateinit var layoutChecklist: View
+
     private lateinit var checklistAdapter: ChecklistAdapter
     private lateinit var fileAdapter: FileAttachmentAdapter
 
-    // Launcher для выбора файлов
-    private val filePickerLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { handleSelectedFile(it) }
-    }
+    private var currentNote: Note? = null
+
+    private val pickFileLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                result.data?.data?.let { handleSelectedFile(it) }
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_note)
 
+        val noteId = intent.getLongExtra("note_id", -1)
+        if (noteId == -1L) {
+            finish()
+            return
+        }
+
         val db = AppDatabase.get(this)
-        val repository = NoteRepository(db.noteDao())
-        viewModel = ViewModelProvider(this, EditNoteViewModel.Factory(repository))
-            .get(EditNoteViewModel::class.java)
+        val noteRepo = NoteRepository(db.noteDao())
+        val attachmentRepo = FileAttachmentRepository(db.fileAttachmentDao())
+
+        viewModel = ViewModelProvider(
+            this,
+            EditNoteViewModel.Factory(noteRepo, attachmentRepo)
+        )[EditNoteViewModel::class.java]
 
         setupUI()
-        loadNote()
         observeViewModel()
+
+        // Загрузка заметки
+        viewModel.loadNote(noteId)
     }
 
     private fun setupUI() {
-        titleEdit = findViewById(R.id.editTitle)
-        contentEdit = findViewById(R.id.editContent)
+        edtTitle = findViewById(R.id.editTitle)
+        edtContent = findViewById(R.id.editContent)
         checklistRecycler = findViewById(R.id.recyclerChecklist)
-        filesRecycler = findViewById(R.id.recyclerFiles)
-        textNoteLayout = findViewById(R.id.layoutTextNote)
-        checklistLayout = findViewById(R.id.layoutChecklist)
-        saveBtn = findViewById(R.id.btnSave)
-        addItemBtn = findViewById(R.id.fabAddItem)
-        attachFileBtn = findViewById(R.id.btnAttachFile)
-        progressBar = findViewById(R.id.progressBar)
+        fileRecycler = findViewById(R.id.recyclerFiles)
+        addFileBtn = findViewById(R.id.btnAttachFile)
+        fabAddItem = findViewById(R.id.fabAddItem)
+
+        // ИСПРАВЛЕНО: используем View вместо LinearLayout
+        layoutTextNote = findViewById(R.id.layoutTextNote)
+        layoutChecklist = findViewById(R.id.layoutChecklist)
 
         // Адаптер для чеклиста
         checklistAdapter = ChecklistAdapter(
             items = mutableListOf(),
             onItemChanged = {},
-            onDeleteItem = { item -> checklistAdapter.removeItem(item) }
+            onDeleteItem = { item ->
+                checklistAdapter.removeItem(item)
+            }
         )
+
         checklistRecycler.layoutManager = LinearLayoutManager(this)
         checklistRecycler.adapter = checklistAdapter
 
         // Адаптер для файлов
         fileAdapter = FileAttachmentAdapter(
             files = mutableListOf(),
-            onFileClick = { file -> openFile(file) },
-            onFileDelete = { file -> fileAdapter.removeFile(file) }
+            onFileClick = { openFile(it) },
+            onFileDelete = { file ->
+                // Удаляем из адаптера сразу
+                fileAdapter.removeFile(file)
+                // Если файл уже был сохранён в БД (есть id), удаляем из БД
+                if (file.id > 0) {
+                    viewModel.deleteAttachment(file)
+                }
+                // Удаляем физический файл
+                try {
+                    File(file.filePath).delete()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         )
-        filesRecycler.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        filesRecycler.adapter = fileAdapter
 
-        addItemBtn.setOnClickListener {
+        fileRecycler.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        fileRecycler.adapter = fileAdapter
+
+        // Кнопка добавления файла
+        addFileBtn.setOnClickListener {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+            }
+            pickFileLauncher.launch(intent)
+        }
+
+        // Кнопка добавления элемента чеклиста
+        fabAddItem.setOnClickListener {
             val newItem = ChecklistItem(text = "")
             checklistAdapter.addItem(newItem)
-            checklistRecycler.smoothScrollToPosition(checklistAdapter.itemCount - 1)
         }
 
-        attachFileBtn.setOnClickListener {
-            filePickerLauncher.launch("*/*")
-        }
-
-        saveBtn.setOnClickListener {
-            saveNote()
-        }
-    }
-
-    private fun loadNote() {
-        val noteId = intent.getLongExtra("note_id", -1)
-        if (noteId != -1L) {
-            viewModel.loadNote(noteId)
-        } else {
-            showError("Ошибка: ID заметки не найден")
-            finish()
-        }
+        // ИСПРАВЛЕНО: Используем toolbar вместо кнопки сохранения
+        // Сохранение через меню или автоматически при onPause
     }
 
     private fun observeViewModel() {
         lifecycleScope.launch {
-            viewModel.note.collect { result ->
+            viewModel.note.collectLatest { result ->
                 when (result) {
-                    is Result.Loading -> showLoading(true)
+                    is Result.Loading -> {
+                        // Показываем прогресс
+                    }
                     is Result.Success -> {
-                        showLoading(false)
-                        result.data?.let { note ->
-                            currentNote = note
-                            displayNote(note)
+                        currentNote = result.data
+                        currentNote?.let { note ->
+                            edtTitle.setText(note.title)
+                            edtContent.setText(note.content)
+
+                            // Показываем нужный layout в зависимости от типа
+                            when (note.type) {
+                                NoteType.TEXT -> {
+                                    layoutTextNote.visibility = View.VISIBLE
+                                    layoutChecklist.visibility = View.GONE
+                                }
+                                NoteType.CHECKLIST -> {
+                                    layoutTextNote.visibility = View.GONE
+                                    layoutChecklist.visibility = View.VISIBLE
+                                    checklistAdapter.updateItems(note.checklistItems)
+                                }
+                            }
                         }
                     }
-                    is Result.Error -> {
-                        showLoading(false)
-                        showError("Ошибка загрузки: ${result.message}")
-                        finish()
-                    }
+                    is Result.Error -> showError("Ошибка загрузки заметки: ${result.message}")
                 }
             }
         }
 
         lifecycleScope.launch {
-            viewModel.saveResult.collect { result ->
+            viewModel.attachments.collectLatest { files ->
+                fileAdapter.updateFiles(files)
+            }
+        }
+
+        lifecycleScope.launch {
+            viewModel.saveResult.collectLatest { result ->
                 result?.let {
                     when (it) {
                         is SaveResult.Success -> {
-                            Toast.makeText(this@EditNoteActivity, "Сохранено", Toast.LENGTH_SHORT).show()
-                            setResult(Activity.RESULT_OK)
+                            Toast.makeText(this@EditNoteActivity, "Заметка сохранена", Toast.LENGTH_SHORT).show()
                             finish()
                         }
                         is SaveResult.Error -> showError(it.message)
@@ -160,137 +206,126 @@ class EditNoteActivity : AppCompatActivity() {
         }
     }
 
-    private fun displayNote(note: Note) {
-        titleEdit.setText(note.title)
-        fileAdapter.updateFiles(note.attachedFiles)
-
-        when (note.type) {
-            NoteType.TEXT -> {
-                textNoteLayout.visibility = View.VISIBLE
-                checklistLayout.visibility = View.GONE
-                contentEdit.setText(note.content)
-                textNoteLayout.alpha = 0f
-                textNoteLayout.animate().alpha(1f).setDuration(200).start()
-                if (note.title.isEmpty() && note.content.isEmpty()) {
-                    titleEdit.requestFocus()
-                }
-            }
-            NoteType.CHECKLIST -> {
-                textNoteLayout.visibility = View.GONE
-                checklistLayout.visibility = View.VISIBLE
-                checklistAdapter.updateItems(note.checklistItems)
-                checklistLayout.alpha = 0f
-                checklistLayout.animate().alpha(1f).setDuration(200).start()
-                if (note.title.isEmpty()) {
-                    titleEdit.requestFocus()
-                }
-            }
-        }
-    }
-
     private fun handleSelectedFile(uri: Uri) {
-        try {
-            val note = currentNote ?: return
+        currentNote?.let { note ->
+            try {
+                val fileName = queryName(uri)
+                val fileSize = querySize(uri)
+                val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
 
-            val fileName = getFileName(uri)
-            val fileSize = getFileSize(uri)
-            val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
+                // Копируем файл в internal storage
+                val localPath = copyToInternalStorage(uri)
 
-            // сохраняем доступ
-            contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
+                // Создаём объект вложения (пока без id, он появится после сохранения в БД)
+                val attachment = FileAttachment(
+                    id = 0, // Временный id
+                    noteId = note.id,
+                    filePath = localPath,
+                    fileName = fileName,
+                    mimeType = mimeType,
+                    fileSize = fileSize
+                )
 
-            val attachment = FileAttachment(
-                noteId = note.id,
-                filePath = uri.toString(),
-                fileName = fileName,
-                mimeType = mimeType,
-                fileSize = fileSize
-            )
+                // Добавляем в адаптер для отображения
+                fileAdapter.addFile(attachment)
 
-            fileAdapter.addFile(attachment)
-            Toast.makeText(this, "Файл добавлен: $fileName", Toast.LENGTH_SHORT).show()
+                // Сразу сохраняем в БД
+                viewModel.addAttachment(attachment)
 
-        } catch (e: Exception) {
-            showError("Ошибка добавления файла: ${e.message}")
+                Toast.makeText(this, "Файл добавлен", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                showError("Ошибка добавления файла: ${e.message}")
+            }
         }
     }
 
+    private fun copyToInternalStorage(uri: Uri): String {
+        val dir = File(filesDir, "attachments")
+        dir.mkdirs()
 
-    private fun getFileName(uri: Uri): String {
-        var name = "unknown"
-        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (nameIndex != -1) {
-                    name = cursor.getString(nameIndex)
-                }
+        // Получаем оригинальное имя файла
+        val originalFileName = queryName(uri)
+        val extension = originalFileName.substringAfterLast('.', "")
+
+        // Создаём уникальное имя файла
+        val uniqueFileName = "${UUID.randomUUID()}${if (extension.isNotEmpty()) ".$extension" else ""}"
+
+        val file = File(dir, uniqueFileName)
+        contentResolver.openInputStream(uri)?.use { input ->
+            file.outputStream().use { output ->
+                input.copyTo(output)
             }
         }
-        return name
-    }
-
-    private fun getFileSize(uri: Uri): Long {
-        var size = 0L
-        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (sizeIndex != -1) {
-                    size = cursor.getLong(sizeIndex)
-                }
-            }
-        }
-        return size
+        return file.absolutePath
     }
 
     private fun openFile(file: FileAttachment) {
         try {
-            val uri = Uri.parse(file.filePath)
+            val realFile = File(file.filePath)
+            if (!realFile.exists()) {
+                showError("Файл не найден")
+                return
+            }
+
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                realFile
+            )
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, file.mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            startActivity(Intent.createChooser(intent, "Открыть файл"))
+
+            // Проверяем, есть ли приложение для открытия
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(Intent.createChooser(intent, "Открыть файл"))
+            } else {
+                showError("Нет приложения для открытия этого типа файлов")
+            }
         } catch (e: Exception) {
-            showError("Не удалось открыть файл")
+            showError("Не удалось открыть файл: ${e.message}")
         }
     }
 
+    private fun queryName(uri: Uri): String =
+        contentResolver.query(uri, null, null, null, null)?.use {
+            val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (it.moveToFirst() && index != -1) it.getString(index) else "file"
+        } ?: "file"
+
+    private fun querySize(uri: Uri): Long =
+        contentResolver.query(uri, null, null, null, null)?.use {
+            val index = it.getColumnIndex(OpenableColumns.SIZE)
+            if (it.moveToFirst() && index != -1) it.getLong(index) else 0L
+        } ?: 0L
+
+    private fun showError(msg: String) {
+        Snackbar.make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG).show()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Автосохранение при выходе
+        saveNote()
+    }
 
     private fun saveNote() {
-        val note = currentNote ?: return
-        val title = titleEdit.text.toString()
-        val files = fileAdapter.files.toList()
+        currentNote?.let { note ->
+            val title = edtTitle.text.toString()
+            val content = edtContent.text.toString()
+            val checklistItems = if (note.type == NoteType.CHECKLIST) {
+                checklistAdapter.items.toList()
+            } else {
+                emptyList()
+            }
 
-        when (note.type) {
-            NoteType.TEXT -> {
-                val content = contentEdit.text.toString()
-                viewModel.saveNote(note, title, content, emptyList(), files)
-            }
-            NoteType.CHECKLIST -> {
-                val items = checklistAdapter.items.toList()
-                viewModel.saveNote(note, title, "", items, files)
-            }
+            viewModel.saveNote(
+                note = note,
+                title = title,
+                content = content,
+                checklistItems = checklistItems
+            )
         }
-    }
-
-    private fun showLoading(isLoading: Boolean) {
-        progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
-        titleEdit.isEnabled = !isLoading
-        contentEdit.isEnabled = !isLoading
-        saveBtn.isEnabled = !isLoading
-        addItemBtn.isEnabled = !isLoading
-        attachFileBtn.isEnabled = !isLoading
-    }
-
-    private fun showError(message: String) {
-        Snackbar.make(findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG).show()
-    }
-
-    override fun onBackPressed() {
-        saveNote()
-        super.onBackPressed()
     }
 }

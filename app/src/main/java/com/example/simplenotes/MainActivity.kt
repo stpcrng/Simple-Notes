@@ -1,23 +1,24 @@
 package com.example.simplenotes
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.Button
 import android.widget.ProgressBar
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.simplenotes.adapter.NoteAdapter
+import com.example.simplenotes.model.NoteType
 import com.example.simplenotes.repository.NoteRepository
+import com.example.simplenotes.ui.NoteTypeSelectionDialog
 import com.example.simplenotes.utils.Result
 import com.example.simplenotes.viewmodel.NoteViewModel
-import com.example.simplenotes.viewmodel.OperationResult
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -25,23 +26,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: NoteViewModel
     private lateinit var adapter: NoteAdapter
     private lateinit var recyclerView: RecyclerView
+    private lateinit var btnAdd: FloatingActionButton
     private lateinit var progressBar: ProgressBar
-    private lateinit var emptyState: android.view.View
-
-    private val editorLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            // Автоматически обновляется через Flow, ничего делать не нужно
-        }
+    private lateinit var emptyState: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Инициализация ViewModel
         val db = AppDatabase.get(this)
         val repository = NoteRepository(db.noteDao())
-        viewModel = ViewModelProvider(this, NoteViewModel.Factory(repository))
-            .get(NoteViewModel::class.java)
+
+        viewModel = ViewModelProvider(
+            this,
+            NoteViewModel.Factory(repository)
+        )[NoteViewModel::class.java]
 
         setupUI()
         observeViewModel()
@@ -49,18 +48,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupUI() {
         recyclerView = findViewById(R.id.recyclerView)
+        btnAdd = findViewById(R.id.btnAdd)
         progressBar = findViewById(R.id.progressBar)
         emptyState = findViewById(R.id.emptyState)
-        val addBtn = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.btnAdd)
 
         adapter = NoteAdapter(
             notes = mutableListOf(),
-            onClick = { note ->
-                val intent = Intent(this, EditNoteActivity::class.java)
-                intent.putExtra("note_id", note.id)
-                editorLauncher.launch(intent)
+            onNoteClick = { note ->
+                openEditActivity(note.id)
             },
-            onLongClick = { note ->
+            onNoteLongClick = { note ->
                 showDeleteDialog(note)
             }
         )
@@ -68,71 +65,47 @@ class MainActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
 
-        addBtn.setOnClickListener {
-            // Показываем диалог выбора типа заметки
-            val dialog = com.example.simplenotes.ui.NoteTypeSelectionDialog { noteType ->
-                viewModel.createNote(noteType) { noteId ->
-                    val intent = Intent(this, EditNoteActivity::class.java)
-                    intent.putExtra("note_id", noteId)
-                    editorLauncher.launch(intent)
-                }
-            }
-            dialog.show(supportFragmentManager, "NoteTypeSelection")
+        btnAdd.setOnClickListener {
+            showNoteTypeDialog()
         }
     }
 
     private fun observeViewModel() {
-        // Наблюдение за списком заметок
         lifecycleScope.launch {
-            viewModel.notes.collect { result ->
+            viewModel.notes.collectLatest { result ->
                 when (result) {
                     is Result.Loading -> {
                         progressBar.visibility = View.VISIBLE
-                        recyclerView.visibility = View.GONE
+                        emptyState.visibility = View.GONE
                     }
                     is Result.Success -> {
                         progressBar.visibility = View.GONE
 
                         if (result.data.isEmpty()) {
-                            recyclerView.visibility = View.GONE
                             emptyState.visibility = View.VISIBLE
-                            // Анимация появления пустого состояния
-                            emptyState.alpha = 0f
-                            emptyState.animate()
-                                .alpha(1f)
-                                .setDuration(300)
-                                .start()
+                            recyclerView.visibility = View.GONE
                         } else {
-                            recyclerView.visibility = View.VISIBLE
                             emptyState.visibility = View.GONE
+                            recyclerView.visibility = View.VISIBLE
                             adapter.update(result.data)
-
-                            // Анимация появления списка
-                            recyclerView.alpha = 0f
-                            recyclerView.animate()
-                                .alpha(1f)
-                                .setDuration(300)
-                                .start()
                         }
                     }
                     is Result.Error -> {
                         progressBar.visibility = View.GONE
-                        recyclerView.visibility = View.VISIBLE
-                        showError("Ошибка загрузки заметок: ${result.message}")
+                        showError("Ошибка загрузки: ${result.message}")
                     }
                 }
             }
         }
 
-        // Наблюдение за результатами операций
         lifecycleScope.launch {
-            viewModel.operationResult.collect { result ->
+            viewModel.operationResult.collectLatest { result ->
                 result?.let {
                     when (it) {
-                        is OperationResult.Success -> {
-                            showSuccess(it.message)
+                        is com.example.simplenotes.viewmodel.OperationResult.Success -> {
+                            Snackbar.make(findViewById(android.R.id.content), it.message, Snackbar.LENGTH_SHORT).show()
                         }
-                        is OperationResult.Error -> {
+                        is com.example.simplenotes.viewmodel.OperationResult.Error -> {
                             showError(it.message)
                         }
                     }
@@ -142,10 +115,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showNoteTypeDialog() {
+        val dialog = NoteTypeSelectionDialog { noteType ->
+            createNote(noteType)
+        }
+        dialog.show(supportFragmentManager, "NoteTypeDialog")
+    }
+
+    private fun createNote(noteType: NoteType) {
+        viewModel.createNote(noteType) { noteId ->
+            openEditActivity(noteId)
+        }
+    }
+
+    private fun openEditActivity(noteId: Long) {
+        val intent = Intent(this, EditNoteActivity::class.java)
+        intent.putExtra("note_id", noteId)
+        startActivity(intent)
+    }
+
     private fun showDeleteDialog(note: Note) {
         AlertDialog.Builder(this)
             .setTitle("Удалить заметку?")
-            .setMessage(if (note.title.isNotBlank()) note.title else "(Без названия)")
+            .setMessage("Вы уверены, что хотите удалить \"${note.title.ifBlank { "(Без названия)" }}\"?")
             .setPositiveButton("Удалить") { _, _ ->
                 viewModel.deleteNote(note)
             }
@@ -154,12 +146,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showError(message: String) {
-        Snackbar.make(recyclerView, message, Snackbar.LENGTH_LONG)
-            .setAction("Повторить") { viewModel.loadNotes() }
-            .show()
-    }
-
-    private fun showSuccess(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        Snackbar.make(findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG).show()
     }
 }

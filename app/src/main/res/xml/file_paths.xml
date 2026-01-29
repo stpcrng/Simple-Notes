@@ -1,12 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Путь к internal storage для вложений -->
-    <files-path
-        name="attachments"
-        path="attachments/" />
-
-    <!-- Корневая директория internal storage -->
-    <files-path
-        name="files"
-        path="." />
+<paths>
+    <files-path name="attachments" path="attachments/" />
 </paths>

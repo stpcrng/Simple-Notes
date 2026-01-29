@@ -17,7 +17,9 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/background" />
+            android:background="@color/background"
+            app:navigationIcon="?attr/homeAsUpIndicator"
+            app:title="Редактирование" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Контент -->
@@ -143,23 +145,11 @@
                     app:backgroundTint="@color/accent" />
             </FrameLayout>
 
-            <!-- Кнопка сохранения -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSave"
-                style="@style/Widget.SimpleNotes.Button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="Сохранить"
-                android:textSize="16sp"
-                app:cornerRadius="12dp"
-                app:backgroundTint="@color/primary" />
-
-            <!-- Прикрепленные файлы -->
+            <!-- Прикреплённые файлы -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Прикрепленные файлы"
+                android:text="Прикреплённые файлы"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
